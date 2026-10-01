@@ -17,11 +17,11 @@ The first run builds the runtime image locally, which takes a few minutes.
 .workbenches/threejs-game/
   workbench.yml
   instructions.md
-  Dockerfile         Playwright 1.60 (Node 24, full Chromium), Python 3, ffmpeg, OpenCode
+  Dockerfile         Playwright 1.60 (Node 24, full Chromium), Bun, Python 3, ffmpeg, OpenCode
   runner/            OpenCode model configuration
   tools/bin/
     tgnew            scaffold a Vite + TypeScript + Three.js game
-    tgserve          serve dist/ in the background (start, stop, status)
+    tgserve          serve the build output in the background (start, stop, status)
     tgcheck          the gate: build, serve, capture declared states, check evidence, optional playtest
   skills/
     threejs-game-workflow/         the bench method: scope, playable-first order, evidence manifest, gate, report
