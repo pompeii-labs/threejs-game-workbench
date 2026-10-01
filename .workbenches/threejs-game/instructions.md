@@ -80,13 +80,14 @@ sessions. In this runtime:
 ## Field rules
 
 Structure
-- Multiplayer-ready from the start. Keep the simulation as plain serializable
-  data on a fixed step, separate from rendering. Every entity, player or AI,
-  is driven by one command type. Game code never touches sockets; it codes to
-  a small transport interface owned by a networking layer.
-- Player intents on latest-value channels travel as acknowledged state
-  (sequence numbers or counters). One-shot effects travel as an event log
-  with ids.
+- Keep the simulation as plain serializable data on a fixed step, separate
+  from rendering, with every entity (player or AI) driven by one command
+  type. It keeps games testable and makes networking cheap to add later.
+- When the task mentions multiplayer, co-op, or networking: game code never
+  touches sockets; it codes to a small transport interface owned by a
+  networking layer. Player intents on latest-value channels travel as
+  acknowledged state (sequence numbers or counters); one-shot effects travel
+  as an event log with ids.
 
 Builds
 - Test hooks and cheat-capable globals exist only in test builds. Gate them
@@ -98,8 +99,8 @@ Builds
 
 Controls and visuals
 - Verify that every control's visual response moves the same direction as its
-  effect (wheels, rudders, levers, sails). Model mechanisms the way players
-  know them from the real world.
+  effect (wheels, rudders, levers, sails). When a direction looks wrong,
+  check how the real mechanism works.
 - World boundaries never trap the player. No compounding per-tick speed
   multipliers at a clamp; push back softly, keep steering responsive, and
   make the edge visible.

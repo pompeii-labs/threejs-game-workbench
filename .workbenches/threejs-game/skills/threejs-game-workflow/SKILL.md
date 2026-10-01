@@ -34,7 +34,7 @@ Update it at each phase boundary. Re-read it if the session resumes.
 2. Playable loop with real input, pressure, reward, fail, and fast retry.
    Run the project's build (`bun run build` with a `bun.lock`, else
    `npm run build`) after each increment; a red build is the first thing to
-   fix. Structure the simulation for multiplayer from the first increment
+   fix. Keep the simulation separate from rendering from the first increment
    (see Field rules in the bench instructions).
 3. One representative scene at the intended camera scale, then content.
 4. Graphics in the skill's order: authored forms, materials, lighting,
