@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # tgcheck [game-dir] [--next] [--playtest <script.mjs>] [--manifest artifacts/evidence.json] [--port 5188]
 # The bench gate. Installs dependencies if needed, runs the production build
-# (typecheck included), serves dist/ in the background, captures every
+# (build:test if the project defines it; typecheck included), serves the build
+# output (Vite build.outDir, default dist/) in the background, captures every
 # viewport/state pair the manifest declares with the canvas inspector, runs
 # the evidence checker against that same run, then runs the playtest script
 # when one is given (with TG_URL set to the served build). Stops the server,
@@ -75,15 +76,25 @@ if [[ ! -d node_modules ]]; then
     # npm ci first for reproducibility. A lockfile out of sync with this
     # platform's optional dependencies (the vendored scaffold's is, on
     # linux-arm64) falls back to npm install, which repairs the lockfile.
+    # A bun.lock selects bun: frozen install first, plain install as fallback.
     ok=false
-    if [[ -f package-lock.json ]] && npm ci --no-audit --no-fund; then ok=true
+    if [[ -f bun.lock ]]; then
+        if bun install --frozen-lockfile || bun install; then ok=true; fi
+    elif [[ -f package-lock.json ]] && npm ci --no-audit --no-fund; then ok=true
     elif npm install --no-audit --no-fund; then ok=true; fi
     record install $ok
     [[ $fail == 0 ]] || finish
 fi
 
-echo "== build"
-npm run build
+# Run scripts with the project's package manager.
+if [[ -f bun.lock ]]; then run=(bun run); else run=(npm run); fi
+# A build:test script builds with test hooks enabled; production builds may
+# gate them behind an env flag. Otherwise the plain build is the gate build.
+script=build
+node -e 'process.exit(require("./package.json").scripts?.["build:test"] ? 0 : 1)' && script=build:test
+
+echo "== build ($script)"
+"${run[@]}" "$script"
 record build $([[ $? == 0 ]] && echo true || echo false)
 [[ $fail == 0 ]] || finish
 

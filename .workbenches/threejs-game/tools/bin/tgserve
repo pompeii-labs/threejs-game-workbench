@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tgserve start|stop|status [game-dir] [--port 4188]
-# Serve the game's built dist/ in the background with vite preview and return
+# Serve the game's build output (Vite build.outDir, default dist/) in the background with vite preview and return
 # immediately. The server runs in its own process group and is tracked by a
 # pid file, so `tgserve stop` kills exactly it and nothing else. Never start
 # a server in the foreground and never pkill by pattern: a pattern such as
@@ -32,7 +32,11 @@ stop() {
 
 case $cmd in
     start)
-        [[ -d dist ]] || { echo "tgserve: no dist/. Run npm run build first." >&2; exit 2; }
+        out=$(for f in vite.config.ts vite.config.mts vite.config.js vite.config.mjs; do
+            [[ -f $f ]] && sed -nE "s/.*outDir[[:space:]]*:[[:space:]]*['\"]([^'\"]+)['\"].*/\1/p" "$f" | head -1
+        done | head -1)
+        out=${out:-dist}
+        [[ -d $out ]] || { echo "tgserve: no $out/. Run the build first." >&2; exit 2; }
         stop > /dev/null 2>&1
         mkdir -p artifacts
         setsid npx vite preview --host 127.0.0.1 --port "$port" --strictPort \
