@@ -24,6 +24,23 @@ RUN apt-get update \
 RUN npm install -g opencode-ai@${OPENCODE_VERSION} \
     && chmod -R a+rX "$(npm root -g)" /ms-playwright
 
+# Bun is installed here because the runtime's /tmp and HOME are noexec and the
+# root filesystem is read-only: nothing can be installed at run time.
+ARG BUN_VERSION=1.3.11
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && case "$(dpkg --print-architecture)" in \
+        amd64) bun_arch=x64 ;; \
+        arm64) bun_arch=aarch64 ;; \
+        *) echo "unsupported architecture" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_arch}.zip" \
+    && unzip -j /tmp/bun.zip "bun-linux-${bun_arch}/bun" -d /usr/local/bin \
+    && chmod a+rx /usr/local/bin/bun \
+    && rm /tmp/bun.zip \
+    && bun --version
+
 COPY skills/ /opt/threejs-game/skills/
 COPY tools/ /opt/threejs-game/tools/
 RUN chmod -R a+rX /opt/threejs-game \
