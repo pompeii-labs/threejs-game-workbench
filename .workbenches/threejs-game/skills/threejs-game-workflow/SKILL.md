@@ -32,8 +32,10 @@ Update it at each phase boundary. Re-read it if the session resumes.
 1. Design brief, core loop contract, level plan
    (`threejs-gameplay-systems`). Write them to `artifacts/design.md`.
 2. Playable loop with real input, pressure, reward, fail, and fast retry.
-   Run `npm run build` after each increment; a red build is the first thing
-   to fix.
+   Run the project's build (`bun run build` with a `bun.lock`, else
+   `npm run build`) after each increment; a red build is the first thing to
+   fix. Structure the simulation for multiplayer from the first increment
+   (see Field rules in the bench instructions).
 3. One representative scene at the intended camera scale, then content.
 4. Graphics in the skill's order: authored forms, materials, lighting,
    effects (`threejs-aaa-graphics-builder`).
@@ -76,11 +78,18 @@ Contract:
 - Read game state and DOM in the same `page.evaluate` call. Separate reads
   race the next frame and produce flaky failures.
 - Run it through the gate: `tgcheck . --next --playtest scripts/playtest.mjs`.
+- Wait on conditions, not frame counts or durations. Clear text fields with
+  `ControlOrMeta+A`. Pointer-lock and mouse tests run in this container only.
+- Before the final pass, check that every control's visual response matches
+  its effect direction and that no boundary can trap the player.
+- Before release, grep the production bundle: no test hooks or cheat globals.
 
 ## 5. Report
 
 Write `artifacts/final-evidence.md` for new games and upgrades. The final
 message leads with what was built and whether `tgcheck` passed, then the
 controls, how to run it (`npm run dev`), the screenshots by path, and what
-remains weak or unverified. Scorecard numbers only when the task asked for
+remains weak or unverified. When the workspace is shared with a macOS or
+Windows host, say that the host must reinstall dependencies before running
+the project. Scorecard numbers only when the task asked for
 premium work, each with one line of evidence.
