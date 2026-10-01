@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# tgserve start|stop|status [game-dir] [--port 4188]
+# Serve the game's built dist/ in the background with vite preview and return
+# immediately. The server runs in its own process group and is tracked by a
+# pid file, so `tgserve stop` kills exactly it and nothing else. Never start
+# a server in the foreground and never pkill by pattern: a pattern such as
+# "vite preview" also matches the shell running the pkill.
+set -uo pipefail
+cmd=${1:-}; shift || true
+dir=.
+port=4188
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --port) port=$2; shift 2 ;;
+        *) dir=$1; shift ;;
+    esac
+done
+cd "$dir" || { echo "tgserve: no such directory: $dir" >&2; exit 2; }
+pidfile="${TMPDIR:-/tmp}/tgserve-$port.pid"
+url="http://127.0.0.1:$port"
+up() { curl -fsS "$url/" > /dev/null 2>&1; }
+
+stop() {
+    if [[ -f $pidfile ]]; then
+        kill -- "-$(cat "$pidfile")" 2>/dev/null
+        rm -f "$pidfile"
+    fi
+    for _ in $(seq 1 20); do up || return 0; sleep 0.25; done
+    echo "tgserve: something else is still serving $url" >&2
+    return 1
+}
+
+case $cmd in
+    start)
+        [[ -d dist ]] || { echo "tgserve: no dist/. Run npm run build first." >&2; exit 2; }
+        stop > /dev/null 2>&1
+        mkdir -p artifacts
+        setsid npx vite preview --host 127.0.0.1 --port "$port" --strictPort \
+            > artifacts/preview.log 2>&1 < /dev/null &
+        echo $! > "$pidfile"
+        for _ in $(seq 1 60); do up && { echo "$url"; exit 0; }; sleep 0.25; done
+        cat artifacts/preview.log >&2
+        stop > /dev/null 2>&1
+        exit 1
+        ;;
+    stop) stop && echo "stopped $url" ;;
+    status) if up; then echo "up $url"; else echo "down $url"; exit 1; fi ;;
+    *) sed -n 2,7p "$0"; exit 2 ;;
+esac

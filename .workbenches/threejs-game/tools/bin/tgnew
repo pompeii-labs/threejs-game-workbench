@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# tgnew <dir> [--force]
+# Scaffold a Vite + TypeScript + Three.js game from the vendored template:
+# seeded RNG, deterministic test hooks, diagnostics, Playwright templates.
+set -euo pipefail
+exec python3 /opt/threejs-game/skills/threejs-gameplay-systems/scripts/create_threejs_game.py "$@"

@@ -1,0 +1,40 @@
+spec: 0
+version: 0.1.0
+
+name: threejs-game
+description: Build and ship playable Three.js browser games, verified in a real browser. Built on majidmanzarpour/threejs-game-skills.
+
+runner: opencode
+model:
+  id: anthropic/claude-opus-5-5
+  routes:
+    - provider: openrouter
+      model: anthropic/claude-opus-5.5
+runner_config: ./runner/opencode.json
+
+instructions: ./instructions.md
+skills:
+  - ./skills/threejs-game-workflow
+  - ./skills/threejs-game-director
+  - ./skills/threejs-gameplay-systems
+  - ./skills/threejs-aaa-graphics-builder
+  - ./skills/threejs-game-ui-designer
+  - ./skills/threejs-debug-profiler
+  - ./skills/threejs-qa-release
+
+tools:
+  - node
+  - npm
+  - python3
+  - ffmpeg
+  - tgnew
+  - tgserve
+  - tgcheck
+
+mcps: []
+env: {}
+
+runtime: docker
+image:
+  build: ./Dockerfile
+  context: .
