@@ -1,32 +1,71 @@
 #!/usr/bin/env bash
 # tgplaytest init [game-dir]   write the section runner (scripts/playtest.mjs)
-#                               and a first section (scripts/playtest/smoke.mjs)
-# tgplaytest list [game-dir]   list the sections tgcheck --only can name
-# Never overwrites an existing playtest. Run it through the gate:
+#                               and a first section (scripts/playtest/smoke.mjs).
+#                               Upgrades an older runner in place. A hand-written
+#                               scripts/playtest.mjs is moved to
+#                               scripts/playtest-legacy.mjs for porting.
+# tgplaytest list [game-dir]   list the sections tgcheck --only can name, with
+#                               their last time and result from the gate
+# Never overwrites a section. Run it through the gate:
 #   tgcheck . --next --playtest scripts/playtest.mjs [--only a,b]
 set -euo pipefail
 
 SHARE=/opt/threejs-game/tools/share/playtest
+# The 0.2.2 runner predates the marker.
+MARK='tgplaytest runner|Playtest section runner, written by `tgplaytest init`'
 cmd=${1:-}
 dir=${2:-.}
 cd "$dir" || { echo "tgplaytest: no such directory: $dir" >&2; exit 2; }
 
 case $cmd in
     init)
-        if [[ -e scripts/playtest.mjs ]]; then
-            echo "tgplaytest: scripts/playtest.mjs exists; not overwriting. Move its checks into scripts/playtest/<section>.mjs files and delete it, then run init again." >&2
-            exit 1
-        fi
         mkdir -p scripts/playtest
-        cp "$SHARE/playtest.mjs" scripts/playtest.mjs
-        [[ -e scripts/playtest/smoke.mjs ]] || cp "$SHARE/smoke.mjs" scripts/playtest/smoke.mjs
-        echo "wrote scripts/playtest.mjs (runner) and scripts/playtest/smoke.mjs (first section)"
+        if [[ -e scripts/playtest.mjs ]] && ! head -1 scripts/playtest.mjs | grep -qE "$MARK"; then
+            if [[ -e scripts/playtest-legacy.mjs ]]; then
+                echo "tgplaytest: scripts/playtest-legacy.mjs exists; finish porting it and delete it first." >&2
+                exit 1
+            fi
+            mv scripts/playtest.mjs scripts/playtest-legacy.mjs
+            legacy=1
+        fi
+        if [[ -e scripts/playtest.mjs ]] && cmp -s "$SHARE/playtest.mjs" scripts/playtest.mjs; then
+            echo "scripts/playtest.mjs is the current runner"
+        else
+            cp "$SHARE/playtest.mjs" scripts/playtest.mjs
+            echo "wrote scripts/playtest.mjs (runner)"
+        fi
+        if [[ ! -e scripts/playtest/smoke.mjs ]]; then
+            cp "$SHARE/smoke.mjs" scripts/playtest/smoke.mjs
+            echo "wrote scripts/playtest/smoke.mjs (first section)"
+        fi
+        if [[ ${legacy:-0} == 1 ]]; then
+            cat <<'EOF'
+moved the hand-written playtest to scripts/playtest-legacy.mjs. tgcheck only
+accepts the runner, so port it now: one scripts/playtest/<section>.mjs per
+behavior area, reusing its helpers from scripts/playtest/_<name>.mjs files.
+Port a few sections per step and gate each with --only. Delete the legacy
+file when every check has a home.
+EOF
+        fi
         ;;
     list)
-        ls scripts/playtest/*.mjs 2>/dev/null | xargs -n1 basename | sed 's/\.mjs$//' | grep -v '^_' || echo "no sections"
+        node - <<'EOF'
+const fs = require('fs');
+const dir = 'scripts/playtest';
+const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.mjs') && !f.startsWith('_')).sort() : [];
+if (!files.length) { console.log('no sections'); process.exit(0); }
+let ledger = {};
+try { ledger = JSON.parse(fs.readFileSync('artifacts/playtest-ledger.json', 'utf8')).sections ?? {}; } catch {}
+const byFile = Object.fromEntries(Object.entries(ledger).map(([name, e]) => [e.file, { name, ...e }]));
+for (const f of files) {
+    const e = byFile[f];
+    const name = e?.name ?? f.replace(/\.mjs$/, '');
+    console.log(e ? `${name}\t${e.seconds}s\t${e.ok ? 'passed' : 'failed'} at ${e.at}` : `${name}\tnot run`);
+}
+EOF
         ;;
     *)
-        sed -n 2,6p "$0"
+        sed -n 2,10p "$0"
         exit 2
         ;;
 esac

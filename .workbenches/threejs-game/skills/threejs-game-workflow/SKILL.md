@@ -75,7 +75,13 @@ under:
   build, capture, or evidence problems.
 - Run only the playtest sections you are working on:
   `tgcheck . --next --playtest scripts/playtest.mjs --only inventory,loot`.
-- Run the full playtest once, as the final gate.
+- Prove the full playtest in batches. Each section's pass is kept until the
+  game source or that section changes, and the gate reports which sections
+  have not passed on the current build. Pick batches with `tgplaytest list`
+  (last time per section) so each gate stays under 4 minutes. The gate says
+  `PASS (full playtest on this build)` once every section has passed.
+  An `--only` gate skips the captures; finish with a fast gate
+  (`tgcheck . --next`) for screenshots and evidence of the final build.
 - Never wait on a background job with a long `sleep`. Run the command and
   let it finish, or split it.
 
@@ -92,14 +98,18 @@ input), prove them with a playtest driven by real key, click, and tap events
 `tgplaytest init`: it writes the runner (`scripts/playtest.mjs`) and one
 file per section in `scripts/playtest/`. Keep each section small and named
 for the behavior it proves; fixes then touch one small file and `--only`
-runs one section.
+runs one section. In an existing game, run `tgplaytest init` too: it
+upgrades the runner, or moves a hand-written playtest to
+`scripts/playtest-legacy.mjs`. Port that file into sections a few at a time
+before adding new checks; the gate stays partial until it is gone.
 
 Before the first section, make the playtest cheap. Software rendering here
 runs a game well below real time, and a fight that takes a player 20 seconds
 can take the bot over a minute.
 
 - Add `setTimeScale(n)` and `setRenderScale(s)` to the test hooks (test
-  builds only). The fixed-step simulation runs n steps of game time per
+  builds only). The gate fails without them, and no other hook (a frame
+  delta cap, a pause, a skip) substitutes. The fixed-step simulation runs n steps of game time per
   step of wall time, with a capped catch-up; rendering draws at s of full
   resolution. The runner sets 3 and 0.5. Checks read game state, not pixels,
   so they stay valid; evidence screenshots come from `tgcheck` captures at
@@ -114,16 +124,12 @@ can take the bot over a minute.
 Contract:
 
 - Read the URL from `process.env.TG_URL`. Never start a server in the script.
-- The runner from `tgplaytest init` handles sections, `TG_ONLY`, speed
-  hooks, and metrics. A hand-written playtest must do the same: honor
-  `TG_ONLY` (comma-separated section names) and print `SKIP name` for the
-  rest.
-- Print one `PASS name` or `FAIL name detail` line per check, write
-  `artifacts/playtest-metrics.json`, and exit non-zero on any failure.
+- The playtest is the runner from `tgplaytest init`; the gate rejects any
+  other. It handles sections, `TG_ONLY`, speed hooks, and metrics. Never
+  edit it; checks go in sections, shared helpers in `scripts/playtest/_*.mjs`.
 - Read game state and DOM in the same `page.evaluate` call. Separate reads
   race the next frame and produce flaky failures.
 - Run it through the gate: `tgcheck . --next --playtest scripts/playtest.mjs`.
-  A gate with `--only` is a partial check; the final gate runs every section.
 - Wait on conditions, not frame counts or durations. Clear text fields with
   `ControlOrMeta+A`. Pointer-lock and mouse tests run in this container only.
 - Before the final pass, check that every control's visual response matches

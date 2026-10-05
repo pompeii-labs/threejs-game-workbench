@@ -9,19 +9,26 @@
 # writes artifacts/tgcheck.json. Exit 0 means every hard check passed.
 #   --next      bump the manifest's runId (pass-N -> pass-N+1) and its report
 #               paths before capturing; use it for every re-gate after a change
-#   --only      run only these playtest sections (passed as TG_ONLY); a partial
-#               gate, so the final gate runs without it
+#   --only      run only these playtest sections (passed as TG_ONLY) and skip
+#               the captures and evidence check; the fast gate covers those
+# The playtest must be the tgplaytest runner and the game must have the
+# setTimeScale/setRenderScale test hooks, or the gate fails. Each section's
+# pass is recorded against the current source (artifacts/playtest-ledger.json),
+# so the full playtest can be proven across several --only gates: PASS is
+# partial until every section has passed on the current build.
 # Each step's time is printed and recorded. Past 4 minutes it warns: the model's
 # prompt cache expires at 5, so split the work rather than run long.
 set -uo pipefail
 
 SKILLS=/opt/threejs-game/skills
+SHARE=/opt/threejs-game/tools/share/playtest
 dir=.
 manifest=artifacts/evidence.json
 port=5188
 next=0
 playtest=
 only=
+complete=
 while [[ $# -gt 0 ]]; do
     case $1 in
         --manifest) manifest=$2; shift 2 ;;
@@ -29,7 +36,7 @@ while [[ $# -gt 0 ]]; do
         --next) next=1; shift ;;
         --playtest) playtest=$2; shift 2 ;;
         --only) only=$2; shift 2 ;;
-        -h|--help) sed -n 2,15p "$0"; exit 0 ;;
+        -h|--help) sed -n 2,20p "$0"; exit 0 ;;
         *) dir=$1; shift ;;
     esac
 done
@@ -51,14 +58,15 @@ finish() {
     local IFS=,
     local total=$((SECONDS - t0))
     printf '{"ok":%s,"partial":%s,"seconds":%s,"url":"http://127.0.0.1:%s","manifest":"%s","steps":[%s]}\n' \
-        "$([[ $fail == 0 ]] && echo true || echo false)" "$([[ -n $only ]] && echo true || echo false)" \
+        "$([[ $fail == 0 ]] && echo true || echo false)" "$([[ -n $playtest && $complete != 1 ]] && echo true || echo false)" \
         "$total" "$port" "$manifest" "${steps[*]}" > artifacts/tgcheck.json
     tgserve stop --port "$port" > /dev/null 2>&1
     echo "tgcheck: ${total}s total"
     if (( total > 240 )); then
         echo "tgcheck: WARNING took $((total / 60))m$((total % 60))s. Past 5 minutes the prompt cache expires; iterate without --playtest or with --only <sections>."
     fi
-    if [[ $fail == 0 && -n $only ]]; then echo "tgcheck: PASS (partial: --only $only)"
+    if [[ $fail == 0 && -n $playtest && $complete != 1 ]]; then echo "tgcheck: PASS (partial: run the sections not yet passed with --only)"
+    elif [[ $fail == 0 && -n $playtest ]]; then echo "tgcheck: PASS (full playtest on this build)"
     elif [[ $fail == 0 ]]; then echo "tgcheck: PASS"; else echo "tgcheck: FAIL (see above)"; fi
     exit $fail
 }
@@ -125,19 +133,30 @@ if ! tgserve start --port "$port"; then
 fi
 record preview true
 
-echo "== inspect"
-node "$SKILLS/threejs-qa-release/scripts/inspect-threejs-canvas.mjs" \
-    --manifest "$manifest" --url "http://127.0.0.1:$port" --seed 42
-record inspect $([[ $? == 0 ]] && echo true || echo false)
+# A playtest batch (--only) skips the captures: they prove the build, not the
+# sections, and the fast gate (no --playtest) takes them.
+if [[ -z $only ]]; then
+    echo "== inspect"
+    node "$SKILLS/threejs-qa-release/scripts/inspect-threejs-canvas.mjs" \
+        --manifest "$manifest" --url "http://127.0.0.1:$port" --seed 42
+    record inspect $([[ $? == 0 ]] && echo true || echo false)
 
-echo "== evidence"
-python3 "$SKILLS/threejs-game-director/scripts/check_evidence.py" . --manifest "$manifest"
-record evidence $([[ $? == 0 ]] && echo true || echo false)
+    echo "== evidence"
+    python3 "$SKILLS/threejs-game-director/scripts/check_evidence.py" . --manifest "$manifest"
+    record evidence $([[ $? == 0 ]] && echo true || echo false)
+fi
 
 if [[ -n $playtest ]]; then
     echo "== playtest $playtest"
+    started=$(node -e 'console.log(Date.now())')
     TG_URL="http://127.0.0.1:$port" TG_ONLY="$only" timeout 240 node "$playtest"
     record playtest $([[ $? == 0 ]] && echo true || echo false)
+    node "$SHARE/ledger.mjs" "$started" "$(node -e 'console.log(require(process.argv[1]).runId)' "$(realpath "$manifest")")"
+    case $? in
+        0) complete=1; record contract true ;;
+        3) record contract true ;;
+        *) record contract false ;;
+    esac
 fi
 
 finish

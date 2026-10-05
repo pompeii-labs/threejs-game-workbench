@@ -1,5 +1,7 @@
-// Playtest section runner, written by `tgplaytest init`. Run it through the
-// gate: `tgcheck . --next --playtest scripts/playtest.mjs [--only a,b]`.
+// tgplaytest runner v1, written by `tgplaytest init`. Do not edit it: init
+// rewrites it on upgrade. Put checks in scripts/playtest/<section>.mjs and
+// run them through the gate: `tgcheck . --next --playtest scripts/playtest.mjs
+// [--only a,b]`.
 //
 // Each file in scripts/playtest/ is one section: it exports `name` (defaults
 // to the file name), optional `viewport` and `mobile`, and a default async
@@ -23,7 +25,14 @@ const TIME_SCALE = Number(process.env.TG_TIME_SCALE ?? 3);
 const RENDER_SCALE = Number(process.env.TG_RENDER_SCALE ?? 0.5);
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'playtest');
 
-const results = { timeScale: TIME_SCALE, renderScale: RENDER_SCALE, sections: {}, checks: [] };
+const results = {
+    runner: 'tgplaytest@1',
+    timeScale: TIME_SCALE,
+    renderScale: RENDER_SCALE,
+    hooks: { setTimeScale: null, setRenderScale: null },
+    sections: {},
+    checks: [],
+};
 let failures = 0;
 
 const files = fs.existsSync(DIR)
@@ -44,7 +53,7 @@ try {
             continue;
         }
         const started = Date.now();
-        const section = { pass: 0, fail: 0, metrics: {} };
+        const section = { file, pass: 0, fail: 0, metrics: {} };
         results.sections[name] = section;
         const context = await browser.newContext({
             viewport: mod.viewport ?? (mod.mobile ? { width: 390, height: 844 } : { width: 1280, height: 720 }),
@@ -86,8 +95,10 @@ try {
                 },
                 [TIME_SCALE, RENDER_SCALE]
             );
+            results.hooks.setTimeScale = (results.hooks.setTimeScale ?? true) && speed.timeScale;
+            results.hooks.setRenderScale = (results.hooks.setRenderScale ?? true) && speed.renderScale;
             if (!speed.timeScale || !speed.renderScale) {
-                console.log(`WARN ${name}: game lacks ${[!speed.timeScale && 'setTimeScale', !speed.renderScale && 'setRenderScale'].filter(Boolean).join(' and ')}; the playtest runs at full cost`);
+                console.log(`WARN ${name}: game lacks ${[!speed.timeScale && 'setTimeScale', !speed.renderScale && 'setRenderScale'].filter(Boolean).join(' and ')}; tgcheck fails until both exist`);
             }
             await mod.default({ page, check, state, until, hooks, metric });
         } catch (error) {
