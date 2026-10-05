@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# tgplaytest init [game-dir]   write the section runner (scripts/playtest.mjs)
+#                               and a first section (scripts/playtest/smoke.mjs)
+# tgplaytest list [game-dir]   list the sections tgcheck --only can name
+# Never overwrites an existing playtest. Run it through the gate:
+#   tgcheck . --next --playtest scripts/playtest.mjs [--only a,b]
+set -euo pipefail
+
+SHARE=/opt/threejs-game/tools/share/playtest
+cmd=${1:-}
+dir=${2:-.}
+cd "$dir" || { echo "tgplaytest: no such directory: $dir" >&2; exit 2; }
+
+case $cmd in
+    init)
+        if [[ -e scripts/playtest.mjs ]]; then
+            echo "tgplaytest: scripts/playtest.mjs exists; not overwriting. Move its checks into scripts/playtest/<section>.mjs files and delete it, then run init again." >&2
+            exit 1
+        fi
+        mkdir -p scripts/playtest
+        cp "$SHARE/playtest.mjs" scripts/playtest.mjs
+        [[ -e scripts/playtest/smoke.mjs ]] || cp "$SHARE/smoke.mjs" scripts/playtest/smoke.mjs
+        echo "wrote scripts/playtest.mjs (runner) and scripts/playtest/smoke.mjs (first section)"
+        ;;
+    list)
+        ls scripts/playtest/*.mjs 2>/dev/null | xargs -n1 basename | sed 's/\.mjs$//' | grep -v '^_' || echo "no sections"
+        ;;
+    *)
+        sed -n 2,6p "$0"
+        exit 2
+        ;;
+esac

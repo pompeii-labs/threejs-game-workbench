@@ -22,6 +22,7 @@ The first run builds the runtime image locally, which takes a few minutes.
   tools/bin/
     tgnew            scaffold a Vite + TypeScript + Three.js game
     tgserve          serve the build output in the background (start, stop, status)
+    tgplaytest       write the playtest section runner (init) and list sections
     tgcheck          the gate: build, serve, capture declared states, check evidence, optional playtest (--only for sections), timed
   skills/
     threejs-game-workflow/         the bench method: scope, playable-first order, evidence manifest, gate, report
@@ -36,6 +37,7 @@ scripts/
 
 ## Changes
 
+- **0.2.2**: cheap playtests by contract: `tgplaytest init` writes a section runner (one file per section, `--only` aware, metrics per section); games add `setTimeScale`/`setRenderScale` test hooks so playtests run at 3x game speed and half resolution; random systems get outcome-forcing hooks before their checks; edits and long runs go in separate commands. From the loot-run logs: playtests were 64 of 120 minutes and long commands caused $4.56 of $12.22 in cache rewrites.
 - **0.2.1**: keep each command under about 4 minutes so the model's 5-minute prompt cache survives (`tgcheck` times every step, warns past 4 minutes, and runs named playtest sections with `--only`); keep the runner's todo list current, since progress bars are drawn from it.
 - **0.2.0**: runtime image with Bun 1.3.11; `tgcheck` and `tgserve` detect bun, `build:test`, and the Vite outDir; reading bench skills and runtime paths no longer prompts for permission; field rules for structure, builds, controls, playtests, and workspaces.
 - **0.1.0**: first release.

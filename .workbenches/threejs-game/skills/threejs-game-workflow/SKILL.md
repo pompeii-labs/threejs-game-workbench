@@ -87,14 +87,37 @@ Stop when the gate passes and the screenshots answer the task. Do not polish
 past what the task asked for.
 
 When the task names behaviors (controls, scoring, fail, restart, mobile
-input), prove them with a playtest: `scripts/playtest.mjs`, driven by real
-key, click, and tap events (`threejs-qa-release/references/playtest-bot.md`).
+input), prove them with a playtest driven by real key, click, and tap events
+(`threejs-qa-release/references/playtest-bot.md`). Start with
+`tgplaytest init`: it writes the runner (`scripts/playtest.mjs`) and one
+file per section in `scripts/playtest/`. Keep each section small and named
+for the behavior it proves; fixes then touch one small file and `--only`
+runs one section.
+
+Before the first section, make the playtest cheap. Software rendering here
+runs a game well below real time, and a fight that takes a player 20 seconds
+can take the bot over a minute.
+
+- Add `setTimeScale(n)` and `setRenderScale(s)` to the test hooks (test
+  builds only). The fixed-step simulation runs n steps of game time per
+  step of wall time, with a capped catch-up; rendering draws at s of full
+  resolution. The runner sets 3 and 0.5. Checks read game state, not pixels,
+  so they stay valid; evidence screenshots come from `tgcheck` captures at
+  full scale.
+- For every random system a check depends on (drops, spawns, crits), add a
+  hook that forces the outcome, such as `forceDrop(itemId)`, before writing
+  the check. Real input still drives the action; the hook only removes the
+  luck. Test the chance itself with at most one statistical check.
+- Edit and run in separate commands. A patch chained to a long run blinds
+  you to the patch result and makes one long command.
+
 Contract:
 
 - Read the URL from `process.env.TG_URL`. Never start a server in the script.
-- Group checks into named sections. When `process.env.TG_ONLY` is set (a
-  comma-separated list from `tgcheck --only`), run only those sections and
-  print `SKIP name` for the rest.
+- The runner from `tgplaytest init` handles sections, `TG_ONLY`, speed
+  hooks, and metrics. A hand-written playtest must do the same: honor
+  `TG_ONLY` (comma-separated section names) and print `SKIP name` for the
+  rest.
 - Print one `PASS name` or `FAIL name detail` line per check, write
   `artifacts/playtest-metrics.json`, and exit non-zero on any failure.
 - Read game state and DOM in the same `page.evaluate` call. Separate reads

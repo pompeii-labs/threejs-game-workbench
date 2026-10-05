@@ -1,5 +1,5 @@
 spec: 0
-version: 0.2.1
+version: 0.2.2
 
 name: threejs-game
 description: Build and ship playable Three.js browser games, verified in a real browser. Built on majidmanzarpour/threejs-game-skills.
@@ -30,6 +30,7 @@ tools:
   - tgnew
   - tgserve
   - tgcheck
+  - tgplaytest
 
 mcps: []
 env: {}
