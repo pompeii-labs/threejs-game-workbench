@@ -27,6 +27,11 @@ For new games and upgrades, keep `artifacts/game-progress.md`: intent and
 constraints, decisions, completed work, remaining defects, next actions.
 Update it at each phase boundary. Re-read it if the session resumes.
 
+If your runner has a todo tool, keep that list current as well: mark an item
+in progress when you start it and completed in the same step you finish it.
+Clients draw the run's progress bar from it, so a list written once and never
+updated shows the run stuck at zero.
+
 ## 3. Build order
 
 1. Design brief, core loop contract, level plan
@@ -60,6 +65,20 @@ tgcheck .              # first pass
 tgcheck . --next       # every re-gate after a change: fresh runId, fresh reports
 ```
 
+Keep every command under about 4 minutes. The model's prompt cache expires
+after 5 minutes, so one long command makes the next step reprocess the whole
+conversation at full price, every time.
+`tgcheck` prints how long each step took and warns past 4 minutes. To stay
+under:
+
+- Iterate on the fast gate (`tgcheck . --next`, no playtest) while you fix
+  build, capture, or evidence problems.
+- Run only the playtest sections you are working on:
+  `tgcheck . --next --playtest scripts/playtest.mjs --only inventory,loot`.
+- Run the full playtest once, as the final gate.
+- Never wait on a background job with a long `sleep`. Run the command and
+  let it finish, or split it.
+
 Never edit the run ID or delete old passes by hand; `--next` does both jobs.
 
 Read its per-capture lines. Then open every screenshot it wrote. A PASS
@@ -73,11 +92,15 @@ key, click, and tap events (`threejs-qa-release/references/playtest-bot.md`).
 Contract:
 
 - Read the URL from `process.env.TG_URL`. Never start a server in the script.
+- Group checks into named sections. When `process.env.TG_ONLY` is set (a
+  comma-separated list from `tgcheck --only`), run only those sections and
+  print `SKIP name` for the rest.
 - Print one `PASS name` or `FAIL name detail` line per check, write
   `artifacts/playtest-metrics.json`, and exit non-zero on any failure.
 - Read game state and DOM in the same `page.evaluate` call. Separate reads
   race the next frame and produce flaky failures.
 - Run it through the gate: `tgcheck . --next --playtest scripts/playtest.mjs`.
+  A gate with `--only` is a partial check; the final gate runs every section.
 - Wait on conditions, not frame counts or durations. Clear text fields with
   `ControlOrMeta+A`. Pointer-lock and mouse tests run in this container only.
 - Before the final pass, check that every control's visual response matches

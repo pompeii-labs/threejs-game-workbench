@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tgcheck [game-dir] [--next] [--playtest <script.mjs>] [--manifest artifacts/evidence.json] [--port 5188]
+# tgcheck [game-dir] [--next] [--playtest <script.mjs> [--only a,b]] [--manifest artifacts/evidence.json] [--port 5188]
 # The bench gate. Installs dependencies if needed, runs the production build
 # (build:test if the project defines it; typecheck included), serves the build
 # output (Vite build.outDir, default dist/) in the background, captures every
@@ -9,6 +9,10 @@
 # writes artifacts/tgcheck.json. Exit 0 means every hard check passed.
 #   --next      bump the manifest's runId (pass-N -> pass-N+1) and its report
 #               paths before capturing; use it for every re-gate after a change
+#   --only      run only these playtest sections (passed as TG_ONLY); a partial
+#               gate, so the final gate runs without it
+# Each step's time is printed and recorded. Past 4 minutes it warns: the model's
+# prompt cache expires at 5, so split the work rather than run long.
 set -uo pipefail
 
 SKILLS=/opt/threejs-game/skills
@@ -17,13 +21,15 @@ manifest=artifacts/evidence.json
 port=5188
 next=0
 playtest=
+only=
 while [[ $# -gt 0 ]]; do
     case $1 in
         --manifest) manifest=$2; shift 2 ;;
         --port) port=$2; shift 2 ;;
         --next) next=1; shift ;;
         --playtest) playtest=$2; shift 2 ;;
-        -h|--help) sed -n 2,11p "$0"; exit 0 ;;
+        --only) only=$2; shift 2 ;;
+        -h|--help) sed -n 2,15p "$0"; exit 0 ;;
         *) dir=$1; shift ;;
     esac
 done
@@ -32,13 +38,28 @@ mkdir -p artifacts
 
 steps=()
 fail=0
-record() { steps+=("{\"step\":\"$1\",\"ok\":$2}"); [[ $2 == true ]] || fail=1; }
+t0=$SECONDS
+mark=$SECONDS
+record() {
+    local took=$((SECONDS - mark))
+    steps+=("{\"step\":\"$1\",\"ok\":$2,\"seconds\":$took}")
+    echo "   $1: $([[ $2 == true ]] && echo ok || echo FAILED) (${took}s)"
+    mark=$SECONDS
+    [[ $2 == true ]] || fail=1
+}
 finish() {
     local IFS=,
-    printf '{"ok":%s,"url":"http://127.0.0.1:%s","manifest":"%s","steps":[%s]}\n' \
-        "$([[ $fail == 0 ]] && echo true || echo false)" "$port" "$manifest" "${steps[*]}" > artifacts/tgcheck.json
+    local total=$((SECONDS - t0))
+    printf '{"ok":%s,"partial":%s,"seconds":%s,"url":"http://127.0.0.1:%s","manifest":"%s","steps":[%s]}\n' \
+        "$([[ $fail == 0 ]] && echo true || echo false)" "$([[ -n $only ]] && echo true || echo false)" \
+        "$total" "$port" "$manifest" "${steps[*]}" > artifacts/tgcheck.json
     tgserve stop --port "$port" > /dev/null 2>&1
-    if [[ $fail == 0 ]]; then echo "tgcheck: PASS"; else echo "tgcheck: FAIL (see above)"; fi
+    echo "tgcheck: ${total}s total"
+    if (( total > 240 )); then
+        echo "tgcheck: WARNING took $((total / 60))m$((total % 60))s. Past 5 minutes the prompt cache expires; iterate without --playtest or with --only <sections>."
+    fi
+    if [[ $fail == 0 && -n $only ]]; then echo "tgcheck: PASS (partial: --only $only)"
+    elif [[ $fail == 0 ]]; then echo "tgcheck: PASS"; else echo "tgcheck: FAIL (see above)"; fi
     exit $fail
 }
 
@@ -115,7 +136,7 @@ record evidence $([[ $? == 0 ]] && echo true || echo false)
 
 if [[ -n $playtest ]]; then
     echo "== playtest $playtest"
-    TG_URL="http://127.0.0.1:$port" timeout 240 node "$playtest"
+    TG_URL="http://127.0.0.1:$port" TG_ONLY="$only" timeout 240 node "$playtest"
     record playtest $([[ $? == 0 ]] && echo true || echo false)
 fi
 

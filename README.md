@@ -22,7 +22,7 @@ The first run builds the runtime image locally, which takes a few minutes.
   tools/bin/
     tgnew            scaffold a Vite + TypeScript + Three.js game
     tgserve          serve the build output in the background (start, stop, status)
-    tgcheck          the gate: build, serve, capture declared states, check evidence, optional playtest
+    tgcheck          the gate: build, serve, capture declared states, check evidence, optional playtest (--only for sections), timed
   skills/
     threejs-game-workflow/         the bench method: scope, playable-first order, evidence manifest, gate, report
     threejs-game-director/ ...     vendored from majidmanzarpour/threejs-game-skills (MIT)
@@ -33,6 +33,12 @@ scripts/
 - Runner: OpenCode. Model: Claude Opus 5.5 through OpenRouter.
 - Runtime: Docker. No GPU is assumed; Chromium renders with SwiftShader, so frame rates measured in the runtime are not performance evidence. Draw calls, triangles, and pixel checks are.
 - `tgcheck` exiting 0 is the definition of done. The method then requires the agent to open its own screenshots and treat a bad-looking frame as a defect.
+
+## Changes
+
+- **0.2.1**: keep each command under about 4 minutes so the model's 5-minute prompt cache survives (`tgcheck` times every step, warns past 4 minutes, and runs named playtest sections with `--only`); keep the runner's todo list current, since progress bars are drawn from it.
+- **0.2.0**: runtime image with Bun 1.3.11; `tgcheck` and `tgserve` detect bun, `build:test`, and the Vite outDir; reading bench skills and runtime paths no longer prompts for permission; field rules for structure, builds, controls, playtests, and workspaces.
+- **0.1.0**: first release.
 
 ## Upstream skills
 
