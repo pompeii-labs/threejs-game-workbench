@@ -1,0 +1,34 @@
+{
+    "source": "https://github.com/pompeii-labs/threejs-game-workbench",
+    "benchmark": {
+        "baseline": "Same model, harness, and sandbox, no Workbench",
+        "model": "anthropic/claude-opus-5-5",
+        "runner": "opencode",
+        "version": "0.1.0",
+        "date": "2026-09-30",
+        "note": "One run per arm per task. Both arms got the same brief and the same checks.",
+        "trials": [
+            {
+                "task": "Zombie wave shooter",
+                "brief": "Build a browser zombie shooter with Three.js: WASD and mouse on desktop, touch on mobile, waves that grow and speed up, kills, wave, and health on screen, restart on R.",
+                "judging": "blind",
+                "preferred": "workbench",
+                "workbench": { "passed": true, "minutes": 15.2, "cost_usd": 2.25, "image": "listing/zombie-bench.webp" },
+                "baseline": { "passed": true, "minutes": 6.6, "cost_usd": 0.57, "image": "listing/zombie-vanilla.webp" }
+            },
+            {
+                "task": "Three-lane dodger",
+                "brief": "Build a browser game with Three.js where the player switches between 3 lanes to dodge obstacles that speed up over time, with a score, a game-over screen, and restart on R.",
+                "judging": "open",
+                "preferred": "workbench",
+                "workbench": { "passed": true, "minutes": 14.0, "cost_usd": 1.8, "image": "listing/dodger-bench.webp" },
+                "baseline": { "passed": true, "minutes": 5.4, "cost_usd": 0.43, "image": "listing/dodger-vanilla.webp" }
+            }
+        ]
+    },
+    "media": [
+        { "src": "listing/zombie-late-wave.webp", "alt": "Top-down zombie shooter at wave 7, a soldier under a flashlight cone with blood splatter on cracked asphalt", "caption": "Zombie shooter, wave 7" },
+        { "src": "listing/zombie-mobile.webp", "alt": "The zombie shooter running on a phone-sized screen with touch controls", "caption": "Same game on a phone" },
+        { "src": "listing/dodger-mobile.webp", "alt": "The neon lane dodger running on a phone-sized screen", "caption": "Dodger on a phone" }
+    ]
+}
