@@ -9,7 +9,7 @@ wb add pompeii/threejs-game
 wb run threejs-game --dir ./my-game --task "Build a top-down zombie shooter with waves and mobile controls"
 ```
 
-The first run builds the runtime image locally, which takes a few minutes.
+The runtime is a published image, `images.workbenches.dev/pompeii/threejs-game:0.3.0` (linux/amd64), so the same package runs locally in Docker and in Workbenches cloud. The first local run pulls it. On Apple silicon it runs under emulation.
 
 ## What is in the bench
 
@@ -17,7 +17,7 @@ The first run builds the runtime image locally, which takes a few minutes.
 .workbenches/threejs-game/
   workbench.yml
   instructions.md
-  Dockerfile         Playwright 1.60 (Node 24, full Chromium), Bun, Python 3, ffmpeg, OpenCode
+  Dockerfile         source of the published runtime image: Playwright 1.60 (Node 24, full Chromium), Bun, Python 3, ffmpeg, OpenCode
   runner/            OpenCode model configuration
   tools/bin/
     tgnew            scaffold a Vite + TypeScript + Three.js game
@@ -37,6 +37,7 @@ scripts/
 
 ## Changes
 
+- **0.3.0**: spec 1. The docker runtime references the published image instead of building the Dockerfile, so cloud runs (which can't build images) work. The Dockerfile stays in the package as the image's source; rebuild it and push a new tag with `wb image push` for each version. Instructions, skills, tools, model and routes are unchanged from 0.2.3.
 - **0.2.3**: the playtest contract is enforced, not advised. `tgcheck` fails a playtest that is not the `tgplaytest` runner or a game without `setTimeScale`/`setRenderScale`; `tgplaytest init` upgrades the runner or moves a hand-written playtest aside for porting; section passes are kept per build in a ledger, so the full playtest is proven across short `--only` gates instead of one long final run. From the skill-tree run on 0.2.2: the agent kept its hand-written playtest, skipped `setTimeScale` ("the frame delta cap covers it"), and ran a 5.3-minute final gate.
 - **0.2.2**: cheap playtests by contract: `tgplaytest init` writes a section runner (one file per section, `--only` aware, metrics per section); games add `setTimeScale`/`setRenderScale` test hooks so playtests run at 3x game speed and half resolution; random systems get outcome-forcing hooks before their checks; edits and long runs go in separate commands. From the loot-run logs: playtests were 64 of 120 minutes and long commands caused $4.56 of $12.22 in cache rewrites.
 - **0.2.1**: keep each command under about 4 minutes so the model's 5-minute prompt cache survives (`tgcheck` times every step, warns past 4 minutes, and runs named playtest sections with `--only`); keep the runner's todo list current, since progress bars are drawn from it.

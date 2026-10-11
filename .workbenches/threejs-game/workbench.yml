@@ -1,5 +1,5 @@
-spec: 0
-version: 0.2.3
+spec: 1
+version: 0.3.0
 
 name: threejs-game
 description: Build and ship playable Three.js browser games, verified in a real browser. Built on majidmanzarpour/threejs-game-skills.
@@ -35,7 +35,6 @@ tools:
 mcps: []
 env: {}
 
-runtime: docker
-image:
-  build: ./Dockerfile
-  context: .
+runtimes:
+  docker:
+    image: images.workbenches.dev/pompeii/threejs-game:0.3.0
